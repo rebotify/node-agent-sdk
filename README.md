@@ -136,10 +136,17 @@ You can get your agentId from the SDK using `agent.agentId`.
 - [getClock](#getclock)
 - [getUserProfile](#getuserprofile)
 - [updateRingState](#updateringstate)
-- [updateConversationField](#updateConversationField)
+- [updateConversationField](#updateconversationfield)
 - [publishEvent](#publishevent)
 - [reconnect](#reconnect)
 - [dispose](#dispose)
+
+#### General request signature
+All requests has the same method signature:
+```javascript
+agent.someRequest(body, headers, metadata, encodedMetadata, callback);
+```
+Where all except body are optional and callback can be placed instead off `headers`, `metadata` and `encodedMetadata`.
 
 #### subscribeExConversations
 This method is used to create a subscription for conversation updates. You can subscribe to all events, or to only those events pertaining to a specific agent or agents.
@@ -240,7 +247,7 @@ The consumerId parameter can be retrieved from the array of participants that ac
 ```javascript
 agent.on('cqm.ExConversationChangeNotification', body => {
     body.changes.forEach(change => {
-        agent.getuserProfile(change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER'[0].id), callback)
+        agent.getUserProfile(change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER'[0].id), callback)
     })
 })
 ```
@@ -326,7 +333,7 @@ agent.updateConversationField({
         {
             'field': 'Skill',
             'type': 'UPDATE',
-            'skill': 'targetSkillId'
+            'skill': targetSkillId
         }
     ]
 }, (e, resp) => {
@@ -362,6 +369,89 @@ agent.publishEvent({
 
 Success response:
 `{"sequence":17}`
+
+##### Example: Set Agent Typing Notification
+```javascript
+agent.publishEvent({
+    dialogId: 'MY_DIALOG_ID',
+    event: {
+        type: 'ChatStateEvent',
+        chatState: 'COMPOSING'
+    }
+})
+```
+
+##### Example: Clear Agent Typing Notification
+```javascript
+agent.publishEvent({
+    dialogId: 'MY_DIALOG_ID',
+    event: {
+        type: 'ChatStateEvent',
+        chatState: 'ACTIVE'
+    }
+})
+```
+
+##### Example: Sending Text with Quick Replies
+
+For more examples see [Quick Replies Documentation](https://developers.liveperson.com/rich-messaging-quick-replies-overview.html)
+```javascript
+agent.publishEvent({
+    dialogId: 'MY_DIALOG_ID',
+    event: {
+        type: 'ContentEvent',
+        contentType: 'text/plain',
+        message: 'hello world!',
+        quickReplies: {
+            "type": "quickReplies",
+            "itemsPerRow": 8,
+            "replies": [
+                {
+                    "type": "button",
+                    "tooltip": "Yes!",
+                    "title": "Yes",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "publishText",
+                                "text": "yep"
+                            }
+                        ],
+                        "metadata": [
+                            {
+                                "type": "ExternalId",
+                                "id": "Yes-1234"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "button",
+                    "tooltip": "No!",
+                    "title": "No!",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "publishText",
+                                "text": "No!"
+                            }
+                        ],
+                        "metadata": [
+                            {
+                                "type": "ExternalId",
+                                "id": "No-4321"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+});
+```
+
+Success response:
+`{"sequence":21}`
 
 ##### Example: Sending Rich Content (Structured Content)
 
@@ -428,6 +518,116 @@ agent.publishEvent({
 Success response:
 `{"sequence":29}`
 
+##### Example: Sending Rich Content (Structured Content) with Quick Replies
+
+*Note that if your structured content card contains images (like the one below) the image must be on an https domain and that domain must be whitelisted on your account. Ask your LivePerson representative to help you with that.*
+
+For more examples using Structured Content see [Structured Content Templates](https://developers.liveperson.com/structured-content-templates.html)
+For more examples using Quick Replies see [Quick Replies Documentation](https://developers.liveperson.com/rich-messaging-quick-replies-overview.html)
+```javascript
+agent.publishEvent({
+    dialogId: 'MY_DIALOG_ID',
+    event: {
+        type: 'RichContentEvent',
+        content: {
+            "type": "vertical",
+            "elements": [
+                {
+                    "type": "image",
+                    "url": "http://cdn.mos.cms.futurecdn.net/vkrEdZXgwP2vFa6AEQLF7f-480-80.jpg?quality=98&strip=all",
+                    "tooltip": "image tooltip",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "navigate",
+                                "name": "Navigate to store via image",
+                                "lo": -73.99852590,
+                                "la": 40.7562724
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": "Product Name",
+                    "tooltip": "text tooltip",
+                    "style": {
+                        "bold": true,
+                        "size": "large"
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": "Product description",
+                    "tooltip": "text tooltip"
+                },
+                {
+                    "type": "button",
+                    "tooltip": "button tooltip",
+                    "title": "Add to cart",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "link",
+                                "name": "Add to cart",
+                                "uri": "http://www.google.com"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        quickReplies: {
+            "type": "quickReplies",
+            "itemsPerRow": 8,
+            "replies": [
+                {
+                    "type": "button",
+                    "tooltip": "Yes!",
+                    "title": "Yes",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "publishText",
+                                "text": "yep"
+                            }
+                        ],
+                        "metadata": [
+                            {
+                                "type": "ExternalId",
+                                "id": "Yes-1234"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "button",
+                    "tooltip": "No!",
+                    "title": "No!",
+                    "click": {
+                        "actions": [
+                            {
+                                "type": "publishText",
+                                "text": "No!"
+                            }
+                        ],
+                        "metadata": [
+                            {
+                                "type": "ExternalId",
+                                "id": "No-4321"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}, null, [{type: 'ExternalId', id: 'MY_CARD_ID'}]);  // ExternalId is how this card will be referred to in reports
+```
+
+Success response:
+`{"sequence":32}`
+
 #### reconnect(skipTokenGeneration)
 **Make sure that you implement reconnect logic according to [liveperson's retry policy guidelines](https://developers.liveperson.com/guides-retry-policy.html)**
 
@@ -435,7 +635,9 @@ Will reconnect the socket with the same configurations - will also regenerate to
 
 Use `skipTokenGeneration = true` if you want to skip the generation of a new token.
 
-Call `reconnect` on `error` with code `401`
+Call `reconnect` on `error` with code `401`.
+
+**Note**: When the `reconnect` method fails to re-establish a connection with LiveEngage, a `closed` and `error` events will fire. Unless these events are handled, multiple instances of a reconnection mechanism will be triggered. See our (retry policy)[https://developers.liveperson.com/retry-and-keepalive-best-practices-overview.html] for more information on how we recommend you handle a retry mechanism.
 
 #### dispose()
 Will dispose of the connection and unregister internal events.
@@ -477,7 +679,7 @@ This event occurs when new conversations are presented to the bot by LivePerson'
 Sample code:
 ```javascript
 agent.on('routing.RoutingTaskNotification', body => {
-    data.changes.forEach(change => {
+    body.changes.forEach(change => {
         if (change.type === 'UPSERT') {
             change.result.ringsDetails.forEach(ring => {
                 if (ring.ringState === 'WAITING') {
