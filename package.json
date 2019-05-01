@@ -1,7 +1,7 @@
 {
   "name": "node-agent-sdk",
   "description": "Liveperson Agent Messaging SDK for NodeJS",
-  "version": "1.1.2",
+  "version": "1.1.6",
   "author": {
     "name": "LivePersonInc",
     "email": "fe-infra-lp@liveperson.com"
@@ -20,7 +20,7 @@
   "devDependencies": {
     "chai": "^3.5.0",
     "eslint": "^3.13.1",
-    "mocha": "^3.2.0",
+    "mocha": "^5.2.0",
     "mockery": "^2.0.0",
     "sinon": "^1.17.7"
   },

@@ -13,15 +13,17 @@
  */
 
 const Agent = require('./../../lib/AgentSDK');
+const MsgHistoryClient = require('./MsgHistoryClient');
+const t2aUtils = require('./Utils');
 
 
 class MyCoolAgent extends Agent {
     constructor(conf) {
         super(conf);
         this.conf = conf;
-        this.init();
         this.CONTENT_NOTIFICATION = 'MyCoolAgent.ContentEvnet';
-        this.consumerId = undefined;
+
+        this.init();
     }
 
     init() {
@@ -62,8 +64,8 @@ class MyCoolAgent extends Agent {
                     openConvs[change.result.convId] = {};
 
                     // demonstraiton of using the consumer profile calls
-                    this.consumerId = change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER')[0].id;
-                    this.getUserProfile(this.consumerId, (e, profileResp) => {
+                    const consumerId = change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER')[0].id;
+                    this.getUserProfile(consumerId, (e, profileResp) => {
                         this.publishEvent({
                             dialogId: change.result.convId,
                             event: {
@@ -73,20 +75,49 @@ class MyCoolAgent extends Agent {
                             }
                         });
                     });
-                    this.subscribeMessagingEvents({dialogId: change.result.convId});
-                } else if(change.type === 'UPSERT' && openConvs[change.result.convId] && change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER')[0].id !== this.consumerId) {
-                    // ConsumerID changed. Typically, a Step Up from an unauthenticated to an authenticated user.
-                    this.consumerId = change.result.conversationDetails.participants.filter(p => p.role === 'CONSUMER')[0].id;
-                    this.getUserProfile(this.consumerId, (e, profileResp) => {
-                        this.publishEvent({
-                            dialogId: change.result.convId,
-                            event: {
-                                type: 'ContentEvent',
-                                contentType: 'text/plain',
-                                message: `Consumer stepped up in conversation with ${JSON.stringify(profileResp)}`
+
+                    this.csdsClient.getAll((err, domains) => {
+                        this.conf.msgHistDomain = domains.msgHist;
+                        this.conf.token = this.token;
+
+                        // get consumer's best MCS conversation's agent id
+                        this.msgHistoryClient = new MsgHistoryClient(this.conf);
+                        this.msgHistoryClient.getConsumerConversations(consumerId, (err, conversations) => {
+                             let agentData = t2aUtils.getAgentDataForBestConversationMCS(conversations);
+
+                            if (agentData) { // check whether the agent is available
+                                // if agent is online transfer, and if not send a welcome message
+                                this.msgHistoryClient.getAgentStatus(agentData.agentId, (err, agentCurrentStatus) => {
+                                    console.log(agentCurrentStatus);
+                                    if (agentCurrentStatus === 'ONLINE') {
+                                        this.updateConversationField({
+                                            conversationId: change.result.convId,
+                                            dialogId: change.result.convId,
+                                            conversationField: [{
+                                                field: 'ParticipantsChange',
+                                                type: 'SUGGEST',
+                                                userId: `${this.accountId}.${agentData.agentId}`,
+                                                role: 'ASSIGNED_AGENT'
+                                            }, {
+                                                field: 'ParticipantsChange',
+                                                type: 'REMOVE',
+                                                userId: this.agentId,
+                                                role: 'ASSIGNED_AGENT'
+                                            }, {
+                                                field: 'Skill',
+                                                type: 'UPDATE',
+                                                skill: agentData.skillId
+                                            }]
+                                        }, (err, res) => {
+                                            console.log(`msg: err - ${err}, res - ${res}`);
+                                        });
+                                    }
+                                });
                             }
                         });
                     });
+
+                    this.subscribeMessagingEvents({dialogId: change.result.convId});
                 } else if (change.type === 'DELETE') {
                     // conversation was closed or transferred
                     delete openConvs[change.result.convId];
@@ -137,6 +168,9 @@ class MyCoolAgent extends Agent {
             // liveperson's retry policy guidelines: https://developers.liveperson.com/guides-retry-policy.html
             console.log('socket closed', data);
             clearInterval(this._pingClock);
+
+            console.log('reconnecting');
+            this.reconnect(); //regenerate token for reasons of authorization (data === 4401 || data === 4407)
         });
     }
 }
